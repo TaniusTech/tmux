@@ -956,6 +956,34 @@ screen_write_mode_clear(struct screen_write_ctx *ctx, int mode)
 		log_debug("%s: %s", __func__, screen_mode_to_string(mode));
 }
 
+/* Record synchronized output update. */
+static void
+screen_write_note_sync_update(struct window_pane *wp)
+{
+	uint64_t	now, elapsed, fps;
+
+	now = get_timer();
+	if (wp->sync_last_update != 0 && now > wp->sync_last_update) {
+		elapsed = now - wp->sync_last_update;
+		fps = 1000 / elapsed;
+		if (fps > 999)
+			fps = 999;
+		if (wp->sync_update_fps == 0)
+			wp->sync_update_fps = fps;
+		else
+			wp->sync_update_fps = (wp->sync_update_fps * 3 + fps) / 4;
+	}
+	wp->sync_last_update = now;
+	wp->sync_update_count++;
+
+	if (wp->window != NULL &&
+	    (wp->sync_status_update == 0 ||
+	    now - wp->sync_status_update >= 250)) {
+		wp->sync_status_update = now;
+		server_status_window(wp->window);
+	}
+}
+
 /* Sync timeout callback. */
 static void
 screen_write_sync_callback(__unused int fd, __unused short events, void *arg)
@@ -967,6 +995,7 @@ screen_write_sync_callback(__unused int fd, __unused short events, void *arg)
 
 	if (wp->base.mode & MODE_SYNC) {
 		wp->base.mode &= ~MODE_SYNC;
+		screen_write_note_sync_update(wp);
 		wp->flags |= PANE_REDRAW;
 	}
 }
@@ -992,12 +1021,17 @@ screen_write_start_sync(struct window_pane *wp)
 void
 screen_write_stop_sync(struct window_pane *wp)
 {
+	int	was_sync;
+
 	if (wp == NULL)
 		return;
 
+	was_sync = (wp->base.mode & MODE_SYNC);
 	if (event_initialized(&wp->sync_timer))
 		evtimer_del(&wp->sync_timer);
 	wp->base.mode &= ~MODE_SYNC;
+	if (was_sync)
+		screen_write_note_sync_update(wp);
 
 	log_debug("%s: %%%u stopped sync mode", __func__, wp->id);
 }
