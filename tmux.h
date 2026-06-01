@@ -1303,6 +1303,10 @@ struct window_pane {
 	struct window_pane_resizes resize_queue;
 	struct event	 resize_timer;
 	struct event	 sync_timer;
+	uint64_t	 sync_last_update;
+	uint64_t	 sync_status_update;
+	u_int		 sync_update_count;
+	u_int		 sync_update_fps;
 
 	struct input_ctx *ictx;
 

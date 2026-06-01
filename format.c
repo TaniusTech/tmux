@@ -2019,6 +2019,81 @@ format_cb_synchronized_output_flag(struct format_tree *ft)
 	return (NULL);
 }
 
+static int
+format_pane_sync_recent(struct window_pane *wp)
+{
+	uint64_t	now;
+
+	if (wp->base.mode & MODE_SYNC)
+		return (1);
+	if (wp->sync_last_update == 0)
+		return (0);
+	now = get_timer();
+	if (now >= wp->sync_last_update && now - wp->sync_last_update <= 2000)
+		return (1);
+	return (0);
+}
+
+/* Callback for pane_sync_fps. */
+static void *
+format_cb_pane_sync_fps(struct format_tree *ft)
+{
+	if (ft->wp != NULL) {
+		if (format_pane_sync_recent(ft->wp))
+			return (format_printf("%u", ft->wp->sync_update_fps));
+		return (xstrdup("0"));
+	}
+	return (NULL);
+}
+
+/* Callback for pane_sync_recent. */
+static void *
+format_cb_pane_sync_recent(struct format_tree *ft)
+{
+	if (ft->wp != NULL) {
+		if (format_pane_sync_recent(ft->wp))
+			return (xstrdup("1"));
+		return (xstrdup("0"));
+	}
+	return (NULL);
+}
+
+/* Callback for pane_sync_updates. */
+static void *
+format_cb_pane_sync_updates(struct format_tree *ft)
+{
+	if (ft->wp != NULL)
+		return (format_printf("%u", ft->wp->sync_update_count));
+	return (NULL);
+}
+
+/* Callback for pane_tui_app. */
+static void *
+format_cb_pane_tui_app(struct format_tree *ft)
+{
+	if (ft->wp != NULL) {
+		if (format_pane_sync_recent(ft->wp))
+			return (xstrdup("sync"));
+		if (ft->wp->base.saved_grid != NULL)
+			return (xstrdup("alt"));
+		return (xstrdup(""));
+	}
+	return (NULL);
+}
+
+/* Callback for pane_tui_detected. */
+static void *
+format_cb_pane_tui_detected(struct format_tree *ft)
+{
+	if (ft->wp != NULL) {
+		if (format_pane_sync_recent(ft->wp) ||
+		    ft->wp->base.saved_grid != NULL)
+			return (xstrdup("1"));
+		return (xstrdup("0"));
+	}
+	return (NULL);
+}
+
 /* Callback for pane_active. */
 static void *
 format_cb_pane_active(struct format_tree *ft)
@@ -3479,6 +3554,15 @@ static const struct format_table_entry format_table[] = {
 	{ "pane_start_path", FORMAT_TABLE_STRING,
 	  format_cb_start_path
 	},
+	{ "pane_sync_fps", FORMAT_TABLE_STRING,
+	  format_cb_pane_sync_fps
+	},
+	{ "pane_sync_recent", FORMAT_TABLE_STRING,
+	  format_cb_pane_sync_recent
+	},
+	{ "pane_sync_updates", FORMAT_TABLE_STRING,
+	  format_cb_pane_sync_updates
+	},
 	{ "pane_synchronized", FORMAT_TABLE_STRING,
 	  format_cb_pane_synchronized
 	},
@@ -3493,6 +3577,12 @@ static const struct format_table_entry format_table[] = {
 	},
 	{ "pane_tty", FORMAT_TABLE_STRING,
 	  format_cb_pane_tty
+	},
+	{ "pane_tui_app", FORMAT_TABLE_STRING,
+	  format_cb_pane_tui_app
+	},
+	{ "pane_tui_detected", FORMAT_TABLE_STRING,
+	  format_cb_pane_tui_detected
 	},
 	{ "pane_unseen_changes", FORMAT_TABLE_STRING,
 	  format_cb_pane_unseen_changes

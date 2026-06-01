@@ -1610,6 +1610,9 @@ tty_write(void (*cmdfn)(struct tty *, const struct tty_ctx *),
 
 	if (ctx->set_client_cb == NULL)
 		return;
+	if (ctx->s != NULL && (ctx->s->mode & MODE_SYNC) &&
+	    cmdfn != tty_cmd_syncstart)
+		return;
 	TAILQ_FOREACH(c, &clients, entry) {
 		if (tty_client_ready(ctx, c)) {
 			state = ctx->set_client_cb(ctx, c);
