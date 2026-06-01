@@ -1117,6 +1117,13 @@ const struct options_table_entry options_table[] = {
 		  "screen."
 	},
 
+	{ .name = "alternate-screen-history",
+	  .type = OPTIONS_TABLE_FLAG,
+	  .scope = OPTIONS_TABLE_WINDOW|OPTIONS_TABLE_PANE,
+	  .default_num = 1,
+	  .text = "Whether alternate screen output is kept in history."
+	},
+
 	{ .name = "automatic-rename",
 	  .type = OPTIONS_TABLE_FLAG,
 	  .scope = OPTIONS_TABLE_WINDOW,
@@ -1468,6 +1475,13 @@ const struct options_table_entry options_table[] = {
 	  .default_num = 1,
 	  .text = "Whether the contents of the screen should be scrolled into"
 		  "history when clearing the whole screen."
+	},
+
+	{ .name = "synchronized-output-history",
+	  .type = OPTIONS_TABLE_FLAG,
+	  .scope = OPTIONS_TABLE_WINDOW|OPTIONS_TABLE_PANE,
+	  .default_num = 1,
+	  .text = "Whether synchronized output frames are kept in history."
 	},
 
 	{ .name = "synchronize-panes",

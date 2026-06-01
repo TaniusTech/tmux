@@ -33,6 +33,9 @@
 
 #include "tmux.h"
 
+#define TMUX_CUSTOM_VERSION "0.1.0"
+#define TMUX_CUSTOM_PATCHSET "droid-ink-sync-telemetry-scrollback"
+
 struct options	*global_options;	/* server options */
 struct options	*global_s_options;	/* session options */
 struct options	*global_w_options;	/* window options */
@@ -360,7 +363,8 @@ find_home(void)
 const char *
 getversion(void)
 {
-	return (TMUX_VERSION);
+	return (TMUX_CUSTOM_VERSION "+tmux." TMUX_VERSION "."
+	    TMUX_CUSTOM_PATCHSET);
 }
 
 int

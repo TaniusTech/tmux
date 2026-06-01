@@ -1305,8 +1305,10 @@ struct window_pane {
 	struct event	 sync_timer;
 	uint64_t	 sync_last_update;
 	uint64_t	 sync_status_update;
+	uint64_t	 sync_history_update;
 	u_int		 sync_update_count;
 	u_int		 sync_update_fps;
+	u_int		 sync_history_size;
 
 	struct input_ctx *ictx;
 
