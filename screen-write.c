@@ -956,6 +956,42 @@ screen_write_mode_clear(struct screen_write_ctx *ctx, int mode)
 		log_debug("%s: %s", __func__, screen_mode_to_string(mode));
 }
 
+/* Save visible screen to history. */
+static void
+screen_write_save_visible_to_history(struct window_pane *wp)
+{
+	struct grid		*gd = wp->base.grid, *copy;
+	struct grid_line	*gl;
+	u_int			 yy, last, total;
+
+	if (~gd->flags & GRID_HISTORY)
+		return;
+
+	copy = grid_create(gd->sx, gd->sy, 0);
+	grid_duplicate_lines(copy, 0, gd, gd->hsize, gd->sy);
+
+	last = 0;
+	for (yy = 0; yy < copy->sy; yy++) {
+		gl = grid_get_line(copy, yy);
+		if (gl->cellused != 0)
+			last = yy + 1;
+	}
+	for (yy = 0; yy < last; yy++) {
+		grid_collect_history(gd, 0);
+		total = gd->hsize + gd->sy;
+		gd->linedata = xreallocarray(gd->linedata, total + 1,
+		    sizeof *gd->linedata);
+		memmove(&gd->linedata[gd->hsize + 1], &gd->linedata[gd->hsize],
+		    gd->sy * sizeof *gd->linedata);
+		memset(&gd->linedata[gd->hsize], 0, sizeof *gd->linedata);
+		grid_duplicate_lines(gd, gd->hsize, copy, yy, 1);
+		gd->linedata[gd->hsize].time = current_time;
+		gd->hsize++;
+	}
+
+	grid_destroy(copy);
+}
+
 /* Record synchronized output update. */
 static void
 screen_write_note_sync_update(struct window_pane *wp)
@@ -975,6 +1011,14 @@ screen_write_note_sync_update(struct window_pane *wp)
 	}
 	wp->sync_last_update = now;
 	wp->sync_update_count++;
+
+	if (options_get_number(wp->options, "synchronized-output-history") &&
+	    wp->base.grid->hsize == wp->sync_history_size &&
+	    (wp->sync_history_update == 0 ||
+	    now - wp->sync_history_update >= 250)) {
+		screen_write_save_visible_to_history(wp);
+		wp->sync_history_update = now;
+	}
 
 	if (wp->window != NULL &&
 	    (wp->sync_status_update == 0 ||
@@ -1010,6 +1054,7 @@ screen_write_start_sync(struct window_pane *wp)
 		return;
 
 	wp->base.mode |= MODE_SYNC;
+	wp->sync_history_size = wp->base.grid->hsize;
 	if (!event_initialized(&wp->sync_timer))
 		evtimer_set(&wp->sync_timer, screen_write_sync_callback, wp);
 	evtimer_add(&wp->sync_timer, &tv);
@@ -2954,6 +2999,10 @@ screen_write_alternateon(struct screen_write_ctx *ctx, struct grid_cell *gc,
 
 	screen_write_collect_flush(ctx, 0, __func__);
 	screen_alternate_on(ctx->s, gc, cursor);
+	if (wp != NULL &&
+	    options_get_number(wp->options, "alternate-screen-history") &&
+	    (ctx->s->saved_flags & GRID_HISTORY))
+		ctx->s->grid->flags |= GRID_HISTORY;
 
 	if (wp != NULL) {
 		layout_fix_panes(wp->window, NULL);
@@ -2972,11 +3021,17 @@ screen_write_alternateoff(struct screen_write_ctx *ctx, struct grid_cell *gc,
 {
 	struct tty_ctx		 ttyctx;
 	struct window_pane	*wp = ctx->wp;
+	u_int			 bg = (gc != NULL ? gc->bg : 8);
 
 	if (wp != NULL && !options_get_number(wp->options, "alternate-screen"))
 		return;
 
 	screen_write_collect_flush(ctx, 0, __func__);
+	if (wp != NULL &&
+	    options_get_number(wp->options, "alternate-screen-history") &&
+	    ctx->s->saved_grid != NULL &&
+	    (ctx->s->grid->flags & GRID_HISTORY))
+		grid_view_clear_history(ctx->s->grid, bg);
 	screen_alternate_off(ctx->s, gc, cursor);
 
 	if (wp != NULL) {
